@@ -101,19 +101,20 @@ def _load_nvrtc():
         return ctypes.CDLL(libs[0], mode=ctypes.RTLD_GLOBAL)
 
     # Attempt to locate NVRTC via ldconfig
-    libs = subprocess.check_output("ldconfig -p | grep 'libnvrtc'", shell=True)
-    libs = libs.decode("utf-8").split("\n")
-    sos = []
-    for lib in libs:
-        if "stub" in lib or "libnvrtc-builtins" in lib:
-            continue
-        if "libnvrtc" in lib and "=>" in lib:
-            sos.append(lib.split(">")[1].strip())
-    if sos:
-        return ctypes.CDLL(sos[0], mode=ctypes.RTLD_GLOBAL)
-
-    # If all else fails, assume that it is in LD_LIBRARY_PATH and error out otherwise
-    return ctypes.CDLL(f"libnvrtc.{_get_sys_extension()}", mode=ctypes.RTLD_GLOBAL)
+    try:
+        libs = subprocess.check_output("ldconfig -p | grep 'libnvrtc'", shell=True)
+        libs = libs.decode("utf-8").split("\n")
+        sos = []
+        for lib in libs:
+            if "stub" in lib or "libnvrtc-builtins" in lib:
+                continue
+            if "libnvrtc" in lib and "=>" in lib:
+                sos.append(lib.split(">")[1].strip())
+        if sos:
+            return ctypes.CDLL(sos[0], mode=ctypes.RTLD_GLOBAL)
+    except subprocess.CalledProcessError:
+        # Fall back to runtime search via LD_LIBRARY_PATH
+        return ctypes.CDLL("libnvrtc.so", mode=ctypes.RTLD_GLOBAL)
 
 
 if "NVTE_PROJECT_BUILDING" not in os.environ or bool(int(os.getenv("NVTE_RELEASE_BUILD", "0"))):

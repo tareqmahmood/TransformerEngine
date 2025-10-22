@@ -211,6 +211,66 @@ def cuda_version() -> Tuple[int, ...]:
     return tuple(int(v) for v in version)
 
 
+@functools.lru_cache(maxsize=None)
+def cudnn_path() -> Optional[Path]:
+    """cuDNN include path.
+    
+    Returns None if cuDNN cannot be found.
+    """
+    # Try environment variables first (TACC system uses CUDNN_INCLUDE_DIR)
+    if os.getenv("CUDNN_INCLUDE_DIR"):
+        include_path = Path(os.getenv("CUDNN_INCLUDE_DIR"))
+        if (include_path / "cudnn.h").exists():
+            return include_path
+    
+    if os.getenv("CUDNN_INCLUDE_PATH"):
+        include_path = Path(os.getenv("CUDNN_INCLUDE_PATH"))
+        if (include_path / "cudnn.h").exists():
+            return include_path
+    
+    if os.getenv("CUDNN_PATH"):
+        cudnn_path_env = Path(os.getenv("CUDNN_PATH"))
+        include_path = cudnn_path_env / "include"
+        if (include_path / "cudnn.h").exists():
+            return include_path
+    
+    # Try common locations relative to CUDA
+    try:
+        cuda_home, _ = cuda_path()
+        # Check CUDA installation directory
+        include_path = cuda_home / "include"
+        if (include_path / "cudnn.h").exists():
+            return include_path
+    except FileNotFoundError:
+        pass
+    
+    # Try system paths
+    system_paths = [
+        Path("/usr/include"),
+        Path("/usr/local/include"),
+        Path("/usr/local/cuda/include"),
+        Path("/opt/cuda/include"),
+    ]
+    
+    for sys_path in system_paths:
+        if (sys_path / "cudnn.h").exists():
+            return sys_path
+    
+    # Try to find cuDNN installation directories (common HPC patterns)
+    for cuda_version in ["12.2", "12.1", "12.0", "11.8"]:
+        for base_path in ["/home1/apps", "/usr/local", "/opt"]:
+            cudnn_paths = [
+                Path(base_path) / f"cuda{cuda_version}" / "cudnn" / "8.9.4" / "include",
+                Path(base_path) / f"cudnn-{cuda_version}" / "include",
+                Path(base_path) / "cudnn" / "include",
+            ]
+            for cudnn_path_candidate in cudnn_paths:
+                if (cudnn_path_candidate / "cudnn.h").exists():
+                    return cudnn_path_candidate
+    
+    return None
+
+
 def get_frameworks() -> List[str]:
     """DL frameworks to build support for"""
     _frameworks: List[str] = []

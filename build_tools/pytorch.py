@@ -12,6 +12,7 @@ from .utils import (
     all_files_in_dir,
     cuda_archs,
     cuda_version,
+    cudnn_path
 )
 
 
@@ -37,6 +38,11 @@ def setup_pytorch_extension(
         common_header_files / "common" / "include",
         csrc_header_files,
     ]
+
+    # Add cuDNN include path if available
+    cudnn_include_path = cudnn_path()
+    if cudnn_include_path:
+        include_dirs.append(cudnn_include_path)
 
     # Compiler flags
     cxx_flags = [
